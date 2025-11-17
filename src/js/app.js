@@ -21,14 +21,40 @@ const importFileInput = document.getElementById('importFile');
 const toastEl = document.getElementById('toast');
 const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
 const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
-const barcodeImageInput = document.getElementById('barcodeImageInput');
 const barcodeModal = document.getElementById('barcodeModal');
 const barcodeCanvas = document.getElementById('barcodeCanvas');
 
 let vouchersCache = [];
 let paymentsCache = [];
 const expandedVoucherIds = new Set();
-const noteSaveTimers = new Map();
+
+function formatPaymentAmount(amount, currency) {
+  if (!Number.isFinite(amount)) return formatCurrency(amount, currency);
+  if (amount === 0) return formatCurrency(0, currency);
+  const formatted = formatCurrency(Math.abs(amount), currency);
+  return amount > 0 ? `-${formatted}` : `+${formatted}`;
+}
+
+function getExpiryInfo(expirationDate) {
+  if (!expirationDate) return null;
+  const date = new Date(expirationDate);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((date - today) / (1000 * 60 * 60 * 24));
+  const formattedDate = date.toLocaleDateString();
+  const inlineText = `Expires ${formattedDate}`;
+  if (diffDays < 0) {
+    return { inlineText: `${inlineText} (expired)`, badgeText: 'Expired', warning: true };
+  }
+  if (diffDays <= 14) {
+    return {
+      inlineText: `${inlineText} (in ${diffDays} day${diffDays === 1 ? '' : 's'})`,
+      warning: true,
+    };
+  }
+  return { inlineText, warning: false, badgeText: '' };
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await initDB();
@@ -78,6 +104,11 @@ function renderVouchers(vouchers, payments) {
     node.querySelector('.voucher-created').textContent = new Date(voucher.created_at).toLocaleString();
     node.querySelector('.voucher-balance').textContent = formatCurrency(voucher.currentBalance, voucher.currency);
     node.querySelector('.voucher-currency').textContent = voucher.currency;
+    const expiryText = node.querySelector('.voucher-expiry');
+
+    const expiryInfo = getExpiryInfo(voucher.expirationDate);
+    if (expiryText) expiryText.textContent = expiryInfo?.inlineText || '';
+
     const barcodeBtn = node.querySelector('.barcode-btn');
     if (!voucher.barcode) {
       barcodeBtn?.remove();
@@ -96,9 +127,36 @@ function renderVouchers(vouchers, payments) {
 
     // Forms IDs
     node.querySelector('.payment-form').dataset.id = voucher.id;
-    const notesForm = node.querySelector('.notes-form');
-    notesForm.dataset.id = voucher.id;
-    notesForm.querySelector('textarea').value = voucher.notes || '';
+    const noteText = voucher.notes?.trim();
+    if (noteText && noteText.length > 0) {
+      const notesEl = node.querySelector('.voucher-notes');
+      if (notesEl) notesEl.textContent = noteText;
+    } else {
+      const notesEl = node.querySelector('.note-display');
+      if (notesEl) notesEl.classList.add('hidden');
+    }
+
+    const editForm = node.querySelector('.edit-form');
+    if (editForm) {
+      editForm.dataset.id = voucher.id;
+      if (editForm.voucherId) editForm.voucherId.value = voucher.id;
+      if (editForm.merchantName) editForm.merchantName.value = voucher.merchantName;
+      if (editForm.currency) editForm.currency.value = voucher.currency;
+      if (editForm.currentBalance)
+        editForm.currentBalance.value = Number(
+          voucher.currentBalance ?? voucher.initialAmount ?? 0,
+        ).toFixed(2);
+      if (editForm.barcode) editForm.barcode.value = voucher.barcode || '';
+      if (editForm.notes) editForm.notes.value = voucher.notes || '';
+      if (editForm.expirationDate) editForm.expirationDate.value = voucher.expirationDate || '';
+      const helper = editForm.querySelector('.balance-helper');
+      if (helper) {
+        helper.textContent = `${formatCurrency(voucher.currentBalance, voucher.currency)} available (initial ${formatCurrency(
+          voucher.initialAmount,
+          voucher.currency,
+        )})`;
+      }
+    }
 
     // Payments
     const paymentsContainer = node.querySelector('.voucher-expenses');
@@ -109,15 +167,17 @@ function renderVouchers(vouchers, payments) {
     } else {
       for (const p of vp.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
         const pNode = paymentTpl.content.cloneNode(true);
-        pNode.querySelector('.payment-merchant').textContent = voucher.merchantName;
         pNode.querySelector('.payment-date').textContent = new Date(p.created_at).toLocaleString();
-        pNode.querySelector('.payment-amount').textContent =
-          '-' + formatCurrency(p.amount, voucher.currency);
+        const amountEl = pNode.querySelector('.payment-amount');
+        amountEl.textContent = formatPaymentAmount(p.amount, voucher.currency);
+        amountEl.classList.toggle('positive', p.amount < 0);
         paymentsContainer.appendChild(pNode);
       }
     }
 
     // Delete button
+    const editBtn = node.querySelector('.edit-btn');
+    if (editBtn) editBtn.dataset.id = voucher.id;
     node.querySelector('.delete-btn').dataset.id = voucher.id;
 
     voucherListEl.appendChild(node);
@@ -154,8 +214,11 @@ function renderPayments(payments, vouchers) {
           <strong>${voucher ? voucher.merchantName : 'Unknown voucher'}</strong>
           <div class="voucher-meta">${new Date(p.created_at).toLocaleString()}</div>
         </div>
-        <div class="payment-amount">-${formatCurrency(p.amount, voucher?.currency || 'EUR')}</div>
+        <div class="payment-amount"></div>
       `;
+      const amountEl = item.querySelector('.payment-amount');
+      amountEl.textContent = formatPaymentAmount(p.amount, voucher?.currency || 'EUR');
+      amountEl.classList.toggle('positive', p.amount < 0);
       list.appendChild(item);
     });
 
@@ -192,6 +255,7 @@ export const voucherApp = {
     const currency = formData.get('currency')?.toString().trim() || 'EUR';
     const barcode = formData.get('barcode')?.toString().trim() || '';
     const notes = formData.get('notes')?.toString().trim() || '';
+    const expirationDate = formData.get('expirationDate')?.toString().trim() || '';
 
     if (!merchantName || Number.isNaN(initialAmount)) {
       alert('Please fill in all required voucher fields.');
@@ -207,6 +271,7 @@ export const voucherApp = {
       barcode,
       barcodeType: 'CODE128',
       notes,
+      expirationDate,
     };
 
     await addVoucher(voucher);
@@ -231,6 +296,16 @@ export const voucherApp = {
         alert('Enter a valid payment amount.');
         return;
       }
+      const voucher = vouchersCache.find((v) => v.id === id);
+      if (!voucher) {
+        alert('Voucher not found');
+        return;
+      }
+
+      if (amount > voucher.currentBalance) {
+        alert('Amount exceeds remaining balance.');
+        return;
+      }
       try {
         await addPayment({ voucherId: id, amount });
         form.reset();
@@ -242,15 +317,57 @@ export const voucherApp = {
       return;
     }
 
-    if (event.target.matches('.notes-form')) {
+    if (event.target.matches('.edit-form')) {
       event.preventDefault();
       const form = event.target;
-      const id = form.dataset.id;
+      const id = form.dataset.id || form.voucherId?.value;
       const voucher = vouchersCache.find((v) => v.id === id);
       if (!voucher) return;
+
+      const desiredBalanceRaw = Number(form.currentBalance.value);
+      if (!Number.isFinite(desiredBalanceRaw)) {
+        alert('Enter a valid balance');
+        return;
+      }
+
+      const desiredBalance = Number(desiredBalanceRaw.toFixed(2));
+      const balanceDelta = Number((voucher.currentBalance - desiredBalance).toFixed(2));
       const notes = form.notes.value.trim();
-      await updateVoucher({ ...voucher, notes });
-      await refreshVouchers();
+      const barcode = form.barcode.value.trim();
+      const expirationDate = form.expirationDate?.value?.trim() || '';
+      const currency = form.currency.value.trim() || 'EUR';
+
+      try {
+        if (balanceDelta !== 0) {
+          await addPayment({ voucherId: voucher.id, amount: balanceDelta });
+        }
+
+        const shouldUpdateVoucher =
+          balanceDelta !== 0 ||
+          notes !== (voucher.notes || '') ||
+          barcode !== (voucher.barcode || '') ||
+          expirationDate !== (voucher.expirationDate || '') ||
+          currency !== (voucher.currency || 'EUR');
+
+        if (shouldUpdateVoucher) {
+          await updateVoucher({
+            ...voucher,
+            currentBalance: desiredBalance,
+            notes,
+            barcode,
+            expirationDate,
+            currency,
+          });
+        }
+
+        const card = form.closest('.voucher-card');
+        exitInlineEdit(card);
+        await refreshVouchers();
+        showToast('Voucher updated');
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Failed to update voucher');
+      }
     }
   },
 
@@ -270,6 +387,32 @@ export const voucherApp = {
       openBarcodeModal(voucher);
       return;
     }
+
+    const editBtn = event.target.closest('.edit-btn');
+    if (editBtn) {
+      event.preventDefault();
+      const id = editBtn.dataset.id;
+      const voucher = vouchersCache.find((v) => v.id === id);
+      if (voucher && card) enterInlineEdit(card, voucher);
+      return;
+    }
+
+    const cancelEditBtn = event.target.closest('.edit-cancel-btn');
+    if (cancelEditBtn) {
+      event.preventDefault();
+      exitInlineEdit(card);
+      return;
+    }
+
+    const scanBtn = event.target.closest('.edit-scan-barcode');
+    if (scanBtn) {
+      event.preventDefault();
+      const input = card?.querySelector('.edit-barcode-input');
+      input?.click();
+      return;
+    }
+
+    if (card && card.classList.contains('editing')) return;
 
     if (card && !isInteractive) {
       const id = card.dataset.id;
@@ -299,24 +442,13 @@ export const voucherApp = {
     }
   },
 
-  async onVoucherListInput(event) {
-    if (!event.target.matches('.notes-form textarea')) return;
-    const textarea = event.target;
-    const form = textarea.closest('.notes-form');
-    if (!form) return;
-    const id = form.dataset.id;
-    clearTimeout(noteSaveTimers.get(id));
-    noteSaveTimers.set(
-      id,
-      setTimeout(async () => {
-        const voucher = vouchersCache.find((v) => v.id === id);
-        if (!voucher) return;
-        const notes = textarea.value.trim();
-        await updateVoucher({ ...voucher, notes });
-        voucher.notes = notes;
-        showToast('Notes saved');
-      }, 400),
-    );
+  async onVoucherListChange(event) {
+    if (event.target.matches('.edit-barcode-input')) {
+      const input = event.target;
+      const form = input.closest('.edit-form');
+      const barcodeInput = form?.querySelector('input[name="barcode"]');
+      await fillBarcodeFromImage(event, barcodeInput);
+    }
   },
 
   async handleExport() {
@@ -358,25 +490,8 @@ export const voucherApp = {
   },
 
   async handleBarcodeImageChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const result = await decodeBarcodeFromImage(file, {
-        readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader'],
-      });
-      if (result?.code) {
-        const barcodeInput = voucherForm.querySelector('input[name="barcode"]');
-        if (barcodeInput) barcodeInput.value = result.code;
-        showToast('Barcode detected');
-      } else {
-        alert('No barcode detected in image');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to decode barcode');
-    } finally {
-      event.target.value = '';
-    }
+    const barcodeInput = voucherForm.querySelector('input[name="barcode"]');
+    await fillBarcodeFromImage(event, barcodeInput);
   },
 
   closeBarcodeModal(event) {
@@ -396,6 +511,60 @@ export const voucherApp = {
 
 // rendre accessible pour htmx (hx-on)
 window.voucherApp = voucherApp;
+
+function enterInlineEdit(card, voucher) {
+  if (!card) return;
+  const view = card.querySelector('.voucher-view');
+  const edit = card.querySelector('.voucher-edit');
+  const form = edit?.querySelector('.edit-form');
+  if (!view || !edit || !form) return;
+
+  form.dataset.id = voucher.id;
+  if (form.voucherId) form.voucherId.value = voucher.id;
+  if (form.merchantName) form.merchantName.value = voucher.merchantName;
+  if (form.currency) form.currency.value = voucher.currency;
+  if (form.currentBalance)
+    form.currentBalance.value = Number(voucher.currentBalance ?? voucher.initialAmount ?? 0).toFixed(2);
+  if (form.barcode) form.barcode.value = voucher.barcode || '';
+  if (form.notes) form.notes.value = voucher.notes || '';
+  if (form.expirationDate) form.expirationDate.value = voucher.expirationDate || '';
+
+  view.classList.add('hidden');
+  edit.classList.remove('hidden');
+  card.classList.add('editing');
+}
+
+function exitInlineEdit(card) {
+  if (!card) return;
+  const view = card.querySelector('.voucher-view');
+  const edit = card.querySelector('.voucher-edit');
+  const form = edit?.querySelector('.edit-form');
+  if (view) view.classList.remove('hidden');
+  if (edit) edit.classList.add('hidden');
+  if (form) form.reset();
+  card.classList.remove('editing');
+}
+
+async function fillBarcodeFromImage(event, targetInput) {
+  const file = event.target.files?.[0];
+  if (!file || !targetInput) return;
+  try {
+    const result = await decodeBarcodeFromImage(file, {
+      readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader'],
+    });
+    if (result?.code) {
+      targetInput.value = result.code;
+      showToast('Barcode detected');
+    } else {
+      alert('No barcode detected in image');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Failed to decode barcode');
+  } finally {
+    event.target.value = '';
+  }
+}
 
 function openBarcodeModal(voucher) {
   if (!barcodeModal || !barcodeCanvas) return;

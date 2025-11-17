@@ -2,6 +2,13 @@
 
 Offline-first, static web app to manage gift vouchers/gift cards. Built with plain HTML/CSS/JS, htmx, IndexedDB for storage, and PWA primitives. Suitable for static hosting (e.g. Cloudflare Pages) or embedding as the web bundle in Electron/Capacitor.
 
+## Features
+- Add vouchers with initial balance, currency, optional expiry, barcode (from text or image) and notes
+- Track expenses per voucher; balances update atomically in IndexedDB
+- Import/export all data as JSON for backups or device migration
+- Offline-first experience via service worker + manifest; works as a standalone PWA
+- Simple, touch-friendly UI built with htmx events (no framework runtime beyond CDN htmx)
+
 ## Getting started
 
 ```bash
@@ -17,6 +24,12 @@ npm run dev
 - load in an Electron app window.
 - use as the Capacitor `webDir`.
 
+## Usage
+- Add a voucher from the `+ Voucher` tab; optional fields can be left blank.
+- Click a voucher to expand details, add an expense, or edit metadata.
+- Import/Export from the Settings tab to move data between browsers.
+- Barcode from image: click the camera icon and choose a photo; live scanning is not included.
+
 ## How data is stored
 
 IndexedDB database `voucher-manager-db` contains:
@@ -24,6 +37,11 @@ IndexedDB database `voucher-manager-db` contains:
 - `payments` store (keyed by `id`, indexed by `voucherId`) with fields: `voucherId`, `amount`, `created_at`. Adding a payment atomically updates the related voucher balance.
 
 No backend is used; exports/imports are JSON files the user downloads or selects locally.
+
+## Known limitations / release checklist
+- htmx is loaded from a CDN; bundle a local copy if you need fully offline installs or tighter control over third-party requests.
+- Service worker assumes the app is served from `/`; adjust `ASSETS` in `src/sw.js` if hosting under a sub-path.
+- No authentication or encryption: this is a purely local, single-user tool.
 
 ## Project structure
 
@@ -41,6 +59,4 @@ src/
   sw.js
   manifest.webmanifest
   icons/
-    icon-192.png
-    icon-512.png
 ```

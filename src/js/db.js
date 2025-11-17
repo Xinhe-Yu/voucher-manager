@@ -205,7 +205,8 @@ export async function getPaymentsByVoucher(voucherId) {
 export async function addPayment({ voucherId, amount, created_at }) {
   if (!voucherId) throw new Error('voucherId is required');
   const numericAmount = Number(amount);
-  if (!numericAmount || numericAmount <= 0) throw new Error('Payment amount must be positive');
+  if (!Number.isFinite(numericAmount) || numericAmount === 0)
+    throw new Error('Payment amount must be a non-zero number');
 
   const db = await initDB();
   const tx = db.transaction([STORE_NAME, PAYMENTS_STORE], 'readwrite');
@@ -224,7 +225,7 @@ export async function addPayment({ voucherId, amount, created_at }) {
   }
 
   const remaining = Number(voucher.currentBalance ?? voucher.initialAmount ?? 0);
-  const updatedBalance = Math.max(0, remaining - numericAmount);
+  const updatedBalance = Number((remaining - numericAmount).toFixed(2));
   voucher.currentBalance = updatedBalance;
 
   paymentsStore.add({

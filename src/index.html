@@ -23,7 +23,7 @@
       hx-on:click="window.voucherApp.setActiveTab('wallet')">Wallet</button>
     <button class="tab-button" data-tab="history"
       hx-on:click="window.voucherApp.setActiveTab('history')">Expenses</button>
-    <button class="tab-button" data-tab="new" hx-on:click="window.voucherApp.setActiveTab('new')">Add Voucher</button>
+    <button class="tab-button" data-tab="new" hx-on:click="window.voucherApp.setActiveTab('new')">+ Voucher</button>
     <button class="tab-button" data-tab="settings"
       hx-on:click="window.voucherApp.setActiveTab('settings')">Settings</button>
   </nav>
@@ -37,7 +37,7 @@
       <div id="voucherList" class="voucher-list" aria-live="polite"
         hx-on:click="window.voucherApp.onVoucherListClick(event)"
         hx-on:submit="window.voucherApp.onVoucherListSubmit(event)"
-        hx-on:input="window.voucherApp.onVoucherListInput(event)"></div>
+        hx-on:change="window.voucherApp.onVoucherListChange(event)"></div>
     </section>
 
     <section class="tab-panel card hidden" id="tab-history" data-tab-panel="history">
@@ -64,6 +64,10 @@
           <input type="text" name="currency" value="EUR" required />
         </label>
         <label>
+          Expiration date (optional)
+          <input type="date" name="expirationDate" />
+        </label>
+        <label>
           Barcode (optional)
           <div class="inline-field">
             <input type="text" name="barcode" placeholder="1234-5678-90" />
@@ -75,7 +79,7 @@
         </label>
         <label class="full-width">
           Notes (optional)
-          <textarea name="notes" rows="3" placeholder="Pin, expiry, store etc."></textarea>
+          <textarea name="notes" rows="3" placeholder="Pin, store etc."></textarea>
         </label>
         <div class="form-actions full-width">
           <button type="submit">Save voucher</button>
@@ -118,8 +122,9 @@
             <span class="voucher-merchant"> </span>
             <button type="button" class="barcode-btn" aria-label="Show barcode">𝄃𝄂𝄂𝄃</button>
           </h3>
-          <div class="voucher-meta">
+          <div class="voucher-meta voucher-meta-row">
             <span class="voucher-created"></span>
+            <span class="voucher-expiry"></span>
           </div>
         </div>
 
@@ -135,36 +140,80 @@
       </header>
 
       <div class="voucher-details hidden">
-        <div class="voucher-meta">
-          <span class="voucher-full-amount"></span>
-          <span class="badge badge-ghost voucher-currency"></span>
+        <div class="voucher-view">
+          <div class="voucher-meta">
+            <span class="voucher-full-amount"></span>
+            <span class="badge badge-ghost voucher-currency"></span>
+            <span class="badge badge-warning hidden voucher-expiry-badge"></span>
+          </div>
+
+          <hr />
+
+          <form class="payment-form" data-id="">
+            <div class="voucher-actions voucher-actions-compact">
+              <label style="flex: 1">
+                <span>Add expense</span>
+                <input name="amount" type="number" step="0.01" min="0.01" placeholder="10" required />
+              </label>
+              <button type="submit" class="icon-btn" aria-label="Add expense">+</button>
+            </div>
+          </form>
+
+          <div class="note-display">
+            <strong>Notes:</strong>
+            <span class="voucher-notes"></span>
+          </div>
+
+          <div class="voucher-expenses payment-list"></div>
+
+          <div class="voucher-actions">
+            <button type="button" class="edit-btn" data-id="">Edit</button>
+            <button type="button" class="secondary delete-btn" data-id="">Delete</button>
+          </div>
         </div>
 
-        <hr />
+        <div class="voucher-edit hidden">
+          <form class="edit-form form-grid" data-id="">
 
-        <form class="payment-form" data-id="">
-          <div class="voucher-actions voucher-actions-compact">
-            <label style="flex: 1">
-              <span>Add expense</span>
-              <input name="amount" type="number" step="0.01" min="0.01" placeholder="10" required />
+            <input type="hidden" name="voucherId" />
+
+            <label>
+              Current balance
+              <input type="number" step="0.01" name="currentBalance" required />
             </label>
-            <button type="submit" class="icon-btn" aria-label="Add expense">+</button>
-          </div>
-        </form>
 
-        <form class="notes-form" data-id="">
-          <div class="voucher-actions">
-            <label style="flex: 1">
-              <span>Notes</span>
-              <textarea name="notes" rows="2" placeholder="Add notes"></textarea>
+            <label>
+              Currency
+              <input type="text" name="currency" />
             </label>
-          </div>
-        </form>
 
-        <div class="voucher-expenses payment-list"></div>
+            <label>
+              Barcode
+              <div class="inline-field">
+                <input type="text" name="barcode" placeholder="1234-5678-90" />
+                <button type="button" class="secondary edit-scan-barcode">📸</button>
+              </div>
+              <input type="file" class="edit-barcode-input" accept="image/*" hidden />
+            </label>
 
-        <div class="voucher-actions">
-          <button type="button" class="secondary delete-btn" data-id="">Delete</button>
+            <label>
+              Expiration date
+              <input type="date" name="expirationDate" />
+            </label>
+
+            <label class="full-width">
+              Notes
+              <textarea name="notes" rows="3" placeholder="Update notes"></textarea>
+            </label>
+
+
+
+
+            <div class="form-actions full-width">
+              <button type="submit">Save changes</button>
+              <button type="button" class="secondary edit-cancel-btn">Cancel</button>
+            </div>
+          </form>
         </div>
       </div>
     </article>
@@ -172,7 +221,6 @@
   <template id="payment-row-template">
     <div class="payment-row">
       <div>
-        <strong class="payment-merchant"></strong>
         <div class="voucher-meta payment-date"></div>
       </div>
       <div class="payment-amount"></div>
