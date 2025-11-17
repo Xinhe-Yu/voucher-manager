@@ -1,0 +1,14 @@
+{
+  "name": "voucher-manager",
+  "version": "0.1.0",
+  "description": "Offline-first web app to manage gift vouchers with IndexedDB and PWA support.",
+  "type": "module",
+  "scripts": {
+    "dev": "http-server ./src -c-1 -p 8080",
+    "start": "npm run dev",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

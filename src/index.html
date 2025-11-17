@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voucher Manager</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+</head>
+<body>
+  <header class="app-header">
+    <h1>Voucher Manager</h1>
+    <p>Offline-first gift voucher tracker</p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Create a voucher</h2>
+      <form id="voucherForm" class="form-grid">
+        <label>
+          Merchant name
+          <input type="text" name="merchantName" required placeholder="Merchant" />
+        </label>
+        <label>
+          Initial amount
+          <input type="number" name="initialAmount" required step="0.01" min="0" placeholder="50" />
+        </label>
+        <label>
+          Currency
+          <input type="text" name="currency" value="EUR" required />
+        </label>
+        <label>
+          Barcode (optional)
+          <input type="text" name="barcode" placeholder="1234-5678-90" />
+        </label>
+        <label class="full-width">
+          Notes (optional)
+          <textarea name="notes" rows="3" placeholder="Pin, expiry, store etc."></textarea>
+        </label>
+        <div class="form-actions full-width">
+          <button type="submit">Save voucher</button>
+          <button type="button" id="resetFormBtn" class="secondary">Reset</button>
+        </div>
+      </form>
+      <div class="utility-actions">
+        <button type="button" id="exportBtn">Export vouchers</button>
+        <button type="button" id="importBtn" class="secondary">Import vouchers</button>
+        <input type="file" id="importFile" accept="application/json" hidden />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-header">
+        <h2>Saved vouchers</h2>
+        <small id="voucherCount"></small>
+      </div>
+      <div id="voucherList" class="voucher-list" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
