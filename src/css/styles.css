@@ -8,6 +8,9 @@
   --accent-strong: #1c65c1;
   --radius: 10px;
   --shadow: 0 6px 24px -12px rgba(0, 0, 0, 0.3);
+  --header-height: 120px;
+  --tab-height-mobile: 56px;
+  --tab-height-desktop: 64px;
 }
 
 * {
@@ -20,11 +23,18 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
   padding: 1.5rem 1.25rem 0.75rem;
   text-align: center;
+  height: var(--header-height);
+  min-height: var(--header-height);
+  box-sizing: border-box;
 }
 
 .app-header h1 {
@@ -39,12 +49,59 @@ body {
 }
 
 .container {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 1rem 2rem;
+  width: 100vw;
+  margin: 0;
+  padding: 0 1rem 1.25rem;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1080px);
+  justify-content: center;
+  justify-items: center;
   gap: 1rem;
+  height: calc(100vh - var(--header-height) - var(--tab-height-mobile));
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--tab-height-mobile);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 18px -14px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.tab-button {
+  border: none;
+  background: transparent;
+  padding: 0.75rem 0.5rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+
+.tab-button.active {
+  color: var(--accent-strong);
+  background: rgba(47, 128, 237, 0.08);
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
+.tab-panel {
+  width: min(80vw, 720px);
+  max-width: 720px;
+  min-width: 280px;
+  margin: 0 auto;
+  justify-self: center;
+  display: block;
 }
 
 .card {
@@ -126,6 +183,7 @@ button {
 
 button:hover {
   background: var(--accent-strong);
+  color: var(--card)
 }
 
 button:active {
@@ -172,13 +230,38 @@ button.secondary:hover {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  position: relative;
+}
+
+.voucher-card.collapsed {
+  cursor: pointer;
 }
 
 .voucher-card header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.35rem;
+  position: relative;
+}
+
+.expand-icon {
+  text-align: end;
+}
+
+.chevron {
+  font-size: 1.15rem;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.voucher-card.collapsed .chevron {
+  transform: rotate(0deg);
+}
+
+.voucher-card.expanded .chevron {
+  transform: rotate(90deg);
 }
 
 .voucher-card h3 {
@@ -186,10 +269,17 @@ button.secondary:hover {
   font-size: 1.05rem;
 }
 
+.balance-line {
+  display: block;
+}
+
+.badge.badge-ghost {
+  background: #eef2f6;
+  color: var(--muted);
+}
+
 .voucher-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.35rem;
+  text-align: end;
   font-size: 0.95rem;
   color: var(--muted);
 }
@@ -223,6 +313,65 @@ button.secondary:hover {
   min-height: 60px;
 }
 
+.voucher-details.hidden {
+  display: none;
+}
+
+.voucher-toggle {
+  margin-left: auto;
+}
+
+.button-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.button-ghost:hover {
+  background: #eef2f6;
+}
+
+.payment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fbfcfe;
+}
+
+.payment-amount {
+  font-weight: 700;
+  color: #b42318;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--tab-height-mobile) + 12px);
+  background: var(--text);
+  color: white;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 30;
+}
+
+.toast.visible {
+  opacity: 1;
+}
+
 hr {
   border: none;
   border-top: 1px solid var(--border);
@@ -230,7 +379,23 @@ hr {
 }
 
 @media (min-width: 900px) {
+  .tab-bar {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    height: var(--tab-height-desktop);
+    border-top: none;
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin-bottom: 1rem;
+  }
+
   .container {
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 1fr;
+    height: calc(100vh - var(--header-height) - var(--tab-height-desktop));
+  }
+
+  .toast {
+    bottom: 20px;
   }
 }

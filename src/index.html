@@ -15,9 +15,32 @@
     <p>Offline-first gift voucher tracker</p>
   </header>
 
+  <nav class="tab-bar" aria-label="Primary">
+    <button class="tab-button active" data-tab="wallet">Wallet</button>
+    <button class="tab-button" data-tab="history">Expenses</button>
+    <button class="tab-button" data-tab="new">Add Voucher</button>
+    <button class="tab-button" data-tab="settings">Settings</button>
+  </nav>
+
   <main class="container">
-    <section class="card">
-      <h2>Create a voucher</h2>
+    <section class="tab-panel card" id="tab-wallet" data-tab-panel="wallet">
+      <div class="section-header">
+        <h2>Active vouchers</h2>
+        <small id="voucherCount"></small>
+      </div>
+      <div id="voucherList" class="voucher-list" aria-live="polite"></div>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-history" data-tab-panel="history">
+      <div class="section-header">
+        <h2>Expense history</h2>
+        <small id="paymentCount"></small>
+      </div>
+      <div id="paymentList" class="payment-list" aria-live="polite"></div>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-new" data-tab-panel="new">
+      <h2>Add a voucher</h2>
       <form id="voucherForm" class="form-grid">
         <label>
           Merchant name
@@ -44,21 +67,21 @@
           <button type="button" id="resetFormBtn" class="secondary">Reset</button>
         </div>
       </form>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-settings" data-tab-panel="settings">
+      <h2>Settings</h2>
+      <p>All data is stored locally in your browser. Use export/import to back up or move data between devices.</p>
+      <p>Future settings could live here (e.g., currency preferences, dark mode).</p>
       <div class="utility-actions">
         <button type="button" id="exportBtn">Export vouchers</button>
         <button type="button" id="importBtn" class="secondary">Import vouchers</button>
         <input type="file" id="importFile" accept="application/json" hidden />
       </div>
     </section>
-
-    <section class="card">
-      <div class="section-header">
-        <h2>Saved vouchers</h2>
-        <small id="voucherCount"></small>
-      </div>
-      <div id="voucherList" class="voucher-list" aria-live="polite"></div>
-    </section>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="/js/app.js"></script>
 </body>
