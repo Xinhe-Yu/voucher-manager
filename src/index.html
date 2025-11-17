@@ -65,7 +65,13 @@
         </label>
         <label>
           Barcode (optional)
-          <input type="text" name="barcode" placeholder="1234-5678-90" />
+          <div class="inline-field">
+            <input type="text" name="barcode" placeholder="1234-5678-90" />
+            <button type="button" class="secondary"
+              hx-on:click="document.getElementById('barcodeImageInput').click()">📸</button>
+          </div>
+          <input type="file" id="barcodeImageInput" accept="image/*" hidden
+            hx-on:change="window.voucherApp.handleBarcodeImageChange(event)" />
         </label>
         <label class="full-width">
           Notes (optional)
@@ -94,6 +100,13 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="barcodeModal" class="modal hidden" hx-on:click="window.voucherApp.closeBarcodeModal(event)">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-label="Barcode preview"
+      hx-on:click="event.stopPropagation()">
+      <canvas id="barcodeCanvas" width="320" height="120"></canvas>
+    </div>
+  </div>
+
   <!-- ========================= -->
   <!-- VOUCHER CARD TEMPLATE     -->
   <!-- ========================= -->
@@ -101,7 +114,10 @@
     <article class="voucher-card collapsed" data-id="">
       <header>
         <div>
-          <h3 class="voucher-merchant"></h3>
+          <h3>
+            <span class="voucher-merchant"> </span>
+            <button type="button" class="barcode-btn" aria-label="Show barcode">𝄃𝄂𝄂𝄃</button>
+          </h3>
           <div class="voucher-meta">
             <span class="voucher-created"></span>
           </div>
@@ -114,6 +130,7 @@
           <div>
             <strong class="voucher-balance"></strong>
           </div>
+
         </div>
       </header>
 

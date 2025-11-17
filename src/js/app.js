@@ -10,6 +10,7 @@ import {
   getAllPayments,
 } from './db.js';
 import { generateId, formatCurrency } from './utils.js';
+import { decodeBarcodeFromImage, renderBarcode } from './barcode.js';
 
 const voucherForm = document.getElementById('voucherForm');
 const voucherListEl = document.getElementById('voucherList');
@@ -20,6 +21,9 @@ const importFileInput = document.getElementById('importFile');
 const toastEl = document.getElementById('toast');
 const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
 const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
+const barcodeImageInput = document.getElementById('barcodeImageInput');
+const barcodeModal = document.getElementById('barcodeModal');
+const barcodeCanvas = document.getElementById('barcodeCanvas');
 
 let vouchersCache = [];
 let paymentsCache = [];
@@ -74,6 +78,10 @@ function renderVouchers(vouchers, payments) {
     node.querySelector('.voucher-created').textContent = new Date(voucher.created_at).toLocaleString();
     node.querySelector('.voucher-balance').textContent = formatCurrency(voucher.currentBalance, voucher.currency);
     node.querySelector('.voucher-currency').textContent = voucher.currency;
+    const barcodeBtn = node.querySelector('.barcode-btn');
+    if (!voucher.barcode) {
+      barcodeBtn?.remove();
+    }
 
     // Details
     const details = node.querySelector('.voucher-details');
@@ -197,6 +205,7 @@ export const voucherApp = {
       currentBalance: initialAmount,
       currency,
       barcode,
+      barcodeType: 'CODE128',
       notes,
     };
 
@@ -248,6 +257,19 @@ export const voucherApp = {
   async onVoucherListClick(event) {
     const card = event.target.closest('.voucher-card');
     const isInteractive = event.target.closest('button, input, textarea, select, a');
+
+    if (event.target.closest('.barcode-btn')) {
+      event.preventDefault();
+      const id = card?.dataset.id;
+      if (!id) return;
+      const voucher = vouchersCache.find((v) => v.id === id);
+      if (!voucher || !voucher.barcode) {
+        alert('No barcode saved for this voucher');
+        return;
+      }
+      openBarcodeModal(voucher);
+      return;
+    }
 
     if (card && !isInteractive) {
       const id = card.dataset.id;
@@ -335,6 +357,33 @@ export const voucherApp = {
     }
   },
 
+  async handleBarcodeImageChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await decodeBarcodeFromImage(file, {
+        readers: ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader'],
+      });
+      if (result?.code) {
+        const barcodeInput = voucherForm.querySelector('input[name="barcode"]');
+        if (barcodeInput) barcodeInput.value = result.code;
+        showToast('Barcode detected');
+      } else {
+        alert('No barcode detected in image');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to decode barcode');
+    } finally {
+      event.target.value = '';
+    }
+  },
+
+  closeBarcodeModal(event) {
+    event?.preventDefault?.();
+    hideBarcodeModal();
+  },
+
   setActiveTab(tab) {
     tabButtons.forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.tab === tab);
@@ -347,3 +396,19 @@ export const voucherApp = {
 
 // rendre accessible pour htmx (hx-on)
 window.voucherApp = voucherApp;
+
+function openBarcodeModal(voucher) {
+  if (!barcodeModal || !barcodeCanvas) return;
+  barcodeModal.classList.remove('hidden');
+  renderBarcode(barcodeCanvas, voucher.barcode, {
+    format: (voucher.barcodeType || 'CODE128').toUpperCase(),
+    width: 2,
+    height: 80,
+    displayValue: true,
+  }).catch((err) => console.error('Failed to render barcode', err));
+}
+
+function hideBarcodeModal() {
+  if (!barcodeModal) return;
+  barcodeModal.classList.add('hidden');
+}

@@ -1,5 +1,5 @@
 const DB_NAME = 'voucher-manager-db';
-const DB_VERSION = 2;
+const DB_VERSION = 4;
 const STORE_NAME = 'vouchers';
 const PAYMENTS_STORE = 'payments';
 
@@ -11,6 +11,8 @@ const PAYMENTS_STORE = 'payments';
  * @property {number} currentBalance
  * @property {string} currency
  * @property {string} [barcode]
+ * @property {string} [barcodeType]
+ * @property {string} [expirationDate]
  * @property {string} [notes]
  * @property {string} created_at
  */
@@ -150,6 +152,8 @@ export async function importVouchers(json) {
       currentBalance: Number(voucher.currentBalance ?? voucher.initialAmount) || 0,
       currency: voucher.currency || 'EUR',
       barcode: voucher.barcode || '',
+      barcodeType: voucher.barcodeType || '',
+      expirationDate: voucher.expirationDate || '',
       notes: voucher.notes || '',
       created_at: voucher.created_at || new Date().toISOString(),
     };

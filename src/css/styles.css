@@ -6,6 +6,7 @@
   --muted: #52616b;
   --accent: #2f80ed;
   --accent-strong: #1c65c1;
+  --success: #166534;
   --radius: 10px;
   --shadow: 0 6px 24px -12px rgba(0, 0, 0, 0.3);
   --header-height: 120px;
@@ -209,6 +210,57 @@ button.secondary:hover {
   grid-column: 1 / -1;
 }
 
+.inline-field {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  width: 100%;
+}
+
+.inline-field input {
+  flex: 1;
+}
+
+.barcode-type-select {
+  margin-top: 0.35rem;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 340px;
+  align-items: center;
+}
+
+.close-modal {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+}
+
 .utility-actions {
   margin-top: 0.75rem;
   display: flex;
@@ -323,6 +375,17 @@ button.secondary:hover {
   justify-content: center;
 }
 
+.barcode-btn {
+  background: #eef2f6;
+  color: var(--muted);
+  padding:0.25rem 0.5rem;
+  display: inline-flex;
+}
+
+.barcode-btn:hover {
+  background: #e0e6ee;
+}
+
 .voucher-actions input,
 .voucher-actions textarea {
   background: white;
@@ -378,7 +441,7 @@ button.secondary:hover {
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(var(--tab-height-mobile) + 12px);
-  background: var(--text);
+  background: var(--success);
   color: white;
   padding: 0.65rem 1rem;
   border-radius: 10px;
