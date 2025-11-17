@@ -1,15 +1,15 @@
-const CACHE_NAME = 'voucher-manager-cache-v1';
+const CACHE_NAME = 'voucher-manager-cache-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/db.js',
-  '/js/utils.js',
-  '/js/barcode.js',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  './',
+  './index.html',
+  './css/styles.css',
+  './js/app.js',
+  './js/db.js',
+  './js/utils.js',
+  './js/barcode.js',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   'https://unpkg.com/htmx.org@1.9.12',
 ];
 
@@ -17,7 +17,11 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) =>
+        cache.addAll(
+          ASSETS.map((asset) => (asset.startsWith('http') ? asset : new URL(asset, self.registration.scope)))
+        )
+      )
       .then(() => self.skipWaiting())
   );
 });
@@ -46,7 +50,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
           return response;
         })
-        .catch(() => caches.match('/index.html'));
+        .catch(() => caches.match(new URL('./index.html', self.registration.scope)));
     })
   );
 });
