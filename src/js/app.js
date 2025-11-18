@@ -581,8 +581,8 @@ function openBarcodeModal(voucher) {
   barcodeModal.classList.remove('hidden');
   renderBarcode(barcodeCanvas, voucher.barcode, {
     format: (voucher.barcodeType || 'CODE128').toUpperCase(),
-    width: 2,
-    height: 80,
+    width: 3,
+    height: 110,
     displayValue: true,
   }).catch((err) => console.error('Failed to render barcode', err));
 }

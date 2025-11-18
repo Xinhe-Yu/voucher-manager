@@ -48,7 +48,23 @@ async function ensureJsBarcode() {
  */
 export async function renderBarcode(element, value, options = {}) {
   const JsBarcode = await ensureJsBarcode();
-  const defaults = { format: 'CODE128', height: 60, width: 2, displayValue: true };
+  const defaults = { format: 'CODE128', height: 100, width: 3, displayValue: true, margin: 8 };
+
+  // Handle high-DPI canvases for crisper rendering
+  if (element instanceof HTMLCanvasElement) {
+    const dpr = window.devicePixelRatio || 1;
+    const logicalWidth = element.width;
+    const logicalHeight = element.height;
+    element.width = Math.floor(logicalWidth * dpr);
+    element.height = Math.floor(logicalHeight * dpr);
+    element.style.width = `${logicalWidth}px`;
+    element.style.height = `${logicalHeight}px`;
+    const ctx = element.getContext('2d');
+    if (ctx && dpr !== 1) {
+      ctx.scale(dpr, dpr);
+    }
+  }
+
   try {
     JsBarcode(element, value, { ...defaults, ...options });
   } catch (err) {
