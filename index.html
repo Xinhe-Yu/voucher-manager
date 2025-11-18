@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voucher Manager</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./css/styles.css" />
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <script type="module" src="./js/app.js" defer></script>
+</head>
+
+<body>
+  <header class="app-header">
+    <h1>Voucher Manager</h1>
+    <p>Offline-first gift voucher tracker</p>
+  </header>
+
+  <nav class="tab-bar" aria-label="Primary">
+    <button class="tab-button active" data-tab="wallet"
+      hx-on:click="window.voucherApp.setActiveTab('wallet')">Wallet</button>
+    <button class="tab-button" data-tab="history"
+      hx-on:click="window.voucherApp.setActiveTab('history')">Expenses</button>
+    <button class="tab-button" data-tab="new" hx-on:click="window.voucherApp.setActiveTab('new')">+ Voucher</button>
+    <button class="tab-button" data-tab="settings"
+      hx-on:click="window.voucherApp.setActiveTab('settings')">Settings</button>
+  </nav>
+
+  <main class="container">
+    <section class="tab-panel card" id="tab-wallet" data-tab-panel="wallet">
+      <div class="section-header">
+        <h2>Active vouchers</h2>
+        <small id="voucherCount"></small>
+      </div>
+      <div id="voucherList" class="voucher-list" aria-live="polite"
+        hx-on:click="window.voucherApp.onVoucherListClick(event)"
+        hx-on:submit="window.voucherApp.onVoucherListSubmit(event)"
+        hx-on:change="window.voucherApp.onVoucherListChange(event)"></div>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-history" data-tab-panel="history">
+      <div class="section-header">
+        <h2>Expense history</h2>
+        <small id="paymentCount"></small>
+      </div>
+      <div id="paymentList" class="payment-list" aria-live="polite"></div>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-new" data-tab-panel="new">
+      <h2>Add a voucher</h2>
+      <form id="voucherForm" class="form-grid" hx-on:submit="window.voucherApp.handleVoucherFormSubmit(event)">
+        <label>
+          Merchant name
+          <input type="text" name="merchantName" required placeholder="Merchant" />
+        </label>
+        <label>
+          Initial amount
+          <input type="number" name="initialAmount" required step="0.01" min="0" placeholder="50" />
+        </label>
+        <label>
+          Currency
+          <input type="text" name="currency" value="EUR" required />
+        </label>
+        <label>
+          Expiration date (optional)
+          <input type="date" name="expirationDate" />
+        </label>
+        <label>
+          Barcode (optional)
+          <div class="inline-field">
+            <input type="text" name="barcode" placeholder="1234-5678-90" />
+            <button type="button" class="secondary"
+              hx-on:click="document.getElementById('barcodeImageInput').click()">📸</button>
+          </div>
+          <input type="file" id="barcodeImageInput" accept="image/*" hidden
+            hx-on:change="window.voucherApp.handleBarcodeImageChange(event)" />
+        </label>
+        <div class="barcode-type-wrapper hidden">
+          <label class="full-width">
+            Encode type
+            <select name="barcodeType" class="barcode-type-select">
+              <option value="CODE128" selected>CODE128</option>
+              <option value="EAN13">EAN13</option>
+              <option value="EAN">EAN</option>
+              <option value="EAN8">EAN8</option>
+              <option value="CODE39">CODE39</option>
+            </select>
+          </label>
+        </div>
+        <label class="full-width">
+          Notes (optional)
+          <textarea name="notes" rows="3" placeholder="Pin, store etc."></textarea>
+        </label>
+        <div class="form-actions full-width">
+          <button type="submit">Save voucher</button>
+          <button type="button" id="resetFormBtn" class="secondary"
+            hx-on:click="window.voucherApp.resetVoucherForm()">Reset</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab-panel card hidden" id="tab-settings" data-tab-panel="settings">
+      <h2>Settings</h2>
+      <p>All data is stored locally in your browser. Use export/import to back up or move data between devices.</p>
+      <p>Future settings could live here (e.g., currency preferences, dark mode).</p>
+      <div class="utility-actions">
+        <button type="button" id="exportBtn" hx-on:click="window.voucherApp.handleExport()">Export vouchers</button>
+        <button type="button" id="importBtn" class="secondary" hx-on:click="window.voucherApp.openImportDialog()">Import
+          vouchers</button>
+        <input type="file" id="importFile" accept="application/json" hidden
+          hx-on:change="window.voucherApp.handleImportFileChange(event)" />
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="barcodeModal" class="modal hidden" hx-on:click="window.voucherApp.closeBarcodeModal(event)">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-label="Barcode preview"
+      hx-on:click="event.stopPropagation()">
+      <canvas id="barcodeCanvas" width="400" height="120"></canvas>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- VOUCHER CARD TEMPLATE     -->
+  <!-- ========================= -->
+  <template id="voucher-card-template">
+    <article class="voucher-card collapsed" data-id="">
+      <header>
+        <div>
+          <h3>
+            <span class="voucher-merchant"> </span>
+            <button type="button" class="barcode-btn" aria-label="Show barcode">𝄃𝄂𝄂𝄃</button>
+          </h3>
+          <div class="voucher-meta voucher-meta-row">
+            <span class="voucher-created"></span>
+            <span class="voucher-expiry"></span>
+          </div>
+        </div>
+
+        <div class="balance-line">
+          <div class="expand-icon">
+            <span class="chevron" aria-hidden="true">›</span>
+          </div>
+          <div>
+            <strong class="voucher-balance"></strong>
+          </div>
+
+        </div>
+      </header>
+
+      <div class="voucher-details hidden">
+        <div class="voucher-view">
+          <div class="voucher-meta">
+            <span class="voucher-full-amount"></span>
+            <span class="badge badge-ghost voucher-currency"></span>
+            <span class="badge badge-warning hidden voucher-expiry-badge"></span>
+          </div>
+
+          <hr />
+
+          <form class="payment-form" data-id="">
+            <div class="voucher-actions voucher-actions-compact">
+              <label style="flex: 1">
+                <span>Add expense</span>
+                <input name="amount" type="number" step="0.01" min="0.01" placeholder="10" required />
+              </label>
+              <button type="submit" class="icon-btn" aria-label="Add expense">+</button>
+            </div>
+          </form>
+
+          <div class="note-display">
+            <strong>Notes:</strong>
+            <span class="voucher-notes"></span>
+          </div>
+
+          <div class="voucher-expenses payment-list"></div>
+
+          <div class="voucher-actions">
+            <button type="button" class="edit-btn" data-id="">Edit</button>
+            <button type="button" class="secondary delete-btn" data-id="">Delete</button>
+          </div>
+        </div>
+
+        <div class="voucher-edit hidden">
+          <form class="edit-form form-grid" data-id="">
+
+            <input type="hidden" name="voucherId" />
+
+            <label>
+              Current balance
+              <input type="number" step="0.01" name="currentBalance" required />
+            </label>
+
+            <label>
+              Currency
+              <input type="text" name="currency" />
+            </label>
+
+            <label>
+              Barcode
+              <div class="inline-field">
+                <input type="text" name="barcode" placeholder="1234-5678-90" />
+                <button type="button" class="secondary edit-scan-barcode">📸</button>
+              </div>
+              <input type="file" class="edit-barcode-input" accept="image/*" hidden />
+            </label>
+            <div class="barcode-type-wrapper hidden">
+              <label class="full-width">
+                Encode type
+                <select name="barcodeType" class="barcode-type-select">
+                  <option value="CODE128" selected>CODE128</option>
+                  <option value="EAN13">EAN13</option>
+                  <option value="EAN">EAN</option>
+                  <option value="EAN8">EAN8</option>
+                  <option value="CODE39">CODE39</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Expiration date
+              <input type="date" name="expirationDate" />
+            </label>
+
+            <label class="full-width">
+              Notes
+              <textarea name="notes" rows="3" placeholder="Update notes"></textarea>
+            </label>
+
+
+
+
+            <div class="form-actions full-width">
+              <button type="submit">Save changes</button>
+              <button type="button" class="secondary edit-cancel-btn">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </article>
+  </template>
+  <template id="payment-row-template">
+    <div class="payment-row">
+      <div>
+        <div class="voucher-meta payment-date"></div>
+      </div>
+      <div class="payment-amount"></div>
+    </div>
+  </template>
+
+</body>
+
+</html>
