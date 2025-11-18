@@ -96,10 +96,6 @@ body {
   background: rgba(47, 128, 237, 0.08);
 }
 
-.tab-panel.hidden {
-  display: none;
-}
-
 .tab-panel {
   width: min(90vw, 720px);
   max-width: 720px;
@@ -167,6 +163,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
@@ -251,10 +248,6 @@ button.secondary:hover {
   justify-content: center;
   z-index: 100;
   overflow: hidden;
-}
-
-.modal.hidden {
-  display: none;
 }
 
 .modal-content {
@@ -437,10 +430,6 @@ button.secondary:hover {
 
 .voucher-actions textarea {
   min-height: 60px;
-}
-
-.voucher-details.hidden {
-  display: none;
 }
 
 .voucher-toggle {
