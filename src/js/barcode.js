@@ -48,33 +48,38 @@ async function ensureJsBarcode() {
  */
 export async function renderBarcode(element, value, options = {}) {
   const JsBarcode = await ensureJsBarcode();
-  const defaults = { format: 'CODE128', height: 100, width: 3, displayValue: true, margin: 8 };
+  const defaults = { format: 'CODE128', height: 80, width: 3, displayValue: true, margin: 8 };
+  const opts = { ...defaults, ...options };
 
-  // Handle high-DPI canvases for crisper rendering
+  // Size canvas based on content length so longer codes don't get cramped.
   if (element instanceof HTMLCanvasElement) {
+    const length = Math.max(1, (value || '').length);
+    const logicalWidth = Math.min(800, Math.max(260, length * 14));
+    let logicalHeight = Math.max(opts.height + (opts.displayValue ? 8 : 0), 110);
+    // keep landscape-ish aspect ratio
+    logicalHeight = Math.min(logicalHeight, logicalWidth * 0.65);
     const dpr = window.devicePixelRatio || 1;
-    const logicalWidth = element.width;
-    const logicalHeight = element.height;
     element.width = Math.floor(logicalWidth * dpr);
     element.height = Math.floor(logicalHeight * dpr);
     element.style.width = `${logicalWidth}px`;
     element.style.height = `${logicalHeight}px`;
     const ctx = element.getContext('2d');
-    if (ctx && dpr !== 1) {
-      ctx.scale(dpr, dpr);
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
   }
 
   try {
-    JsBarcode(element, value, { ...defaults, ...options });
+    JsBarcode(element, value, opts);
   } catch (err) {
     console.error('JsBarcode failed, falling back to text render.', err);
     const ctx = element.getContext?.('2d');
     if (ctx) {
+      const logicalHeight = parseFloat(element.style.height) || element.height;
       ctx.clearRect(0, 0, element.width, element.height);
       ctx.font = '16px sans-serif';
       ctx.fillStyle = '#111';
-      ctx.fillText(value, 8, element.height / 2);
+      ctx.fillText(value, 8, logicalHeight / 2);
     } else {
       element.textContent = value;
     }
