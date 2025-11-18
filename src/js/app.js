@@ -579,6 +579,9 @@ async function fillBarcodeFromImage(event, targetInput) {
 function openBarcodeModal(voucher) {
   if (!barcodeModal || !barcodeCanvas) return;
   barcodeModal.classList.remove('hidden');
+  const shouldRotate = window.matchMedia('(max-width: 500px) and (orientation: portrait)').matches;
+  const content = barcodeModal.querySelector('.modal-content');
+  content?.classList.toggle('barcode-vertical', shouldRotate);
   renderBarcode(barcodeCanvas, voucher.barcode, {
     format: (voucher.barcodeType || 'CODE128').toUpperCase(),
     width: 3,

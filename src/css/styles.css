@@ -243,11 +243,14 @@ button.secondary:hover {
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  overflow: hidden;
 }
 
 .modal.hidden {
@@ -265,6 +268,8 @@ button.secondary:hover {
   gap: 0.5rem;
   min-width: 340px;
   align-items: center;
+  max-width: min(520px, 92vw);
+  overflow: visible;
 }
 
 .close-modal {
@@ -496,6 +501,21 @@ button.secondary:hover {
 
 .toast.visible {
   opacity: 1;
+}
+
+#barcodeCanvas {
+  display: block;
+  max-width: 90vw;
+  max-height: 70vh;
+}
+
+.barcode-vertical {
+  transform: rotate(90deg);
+  transform-origin: center;
+  max-width: none;
+  min-width: auto;
+  max-height: 90vh;
+  width: auto;
 }
 
 hr {
