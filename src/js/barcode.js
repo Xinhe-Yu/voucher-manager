@@ -53,7 +53,6 @@ export async function renderBarcode(element, value, options = {}) {
     JsBarcode(element, value, { ...defaults, ...options });
   } catch (err) {
     console.error('JsBarcode failed, falling back to text render.', err);
-    // Fallback: simple text render
     const ctx = element.getContext?.('2d');
     if (ctx) {
       ctx.clearRect(0, 0, element.width, element.height);
@@ -70,9 +69,9 @@ export async function renderBarcode(element, value, options = {}) {
  * Decode a still image file using Quagga's single image mode.
  * @param {File} file
  * @param {{readers?: string[]}} [options]
- * @returns {Promise<string|null>} resolved with the detected code or null
+ * @returns {Promise<{code: string, format?: string}|null>} resolved with the detected code/format or null
  */
-export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader'] } = {}) {
+export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader'] } = {}) {
   if (!file) throw new Error('No file provided');
   const Quagga = await ensureQuagga();
   const dataUrl = await readFileAsDataURL(file);
@@ -86,7 +85,12 @@ export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader
         locate: true,
       },
       (result) => {
-        resolve(result?.codeResult || null);
+        const codeResult = result?.codeResult;
+        if (!codeResult?.code) return resolve(null);
+        resolve({
+          code: codeResult.code,
+          format: quaggaFormatToJsBarcode(codeResult.format),
+        });
       }
     );
   });
@@ -99,4 +103,17 @@ function readFileAsDataURL(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function quaggaFormatToJsBarcode(format) {
+  if (!format) return undefined;
+  const normalized = format.toLowerCase();
+  const map = {
+    code_128: 'CODE128',
+    ean: 'EAN',
+    ean_8: 'EAN8',
+    ean_13: 'EAN13',
+    code_39: 'CODE39',
+  };
+  return map[normalized] || format.toUpperCase();
 }

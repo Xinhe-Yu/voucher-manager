@@ -76,6 +76,19 @@
           </div>
           <input type="file" id="barcodeImageInput" accept="image/*" hidden
             hx-on:change="window.voucherApp.handleBarcodeImageChange(event)" />
+
+        </label>
+        <label>
+          Encode Type
+          <div class="inline-field">
+            <select name="barcodeType" class="barcode-type-select">
+              <option value="CODE128" selected>CODE128</option>
+              <option value="EAN13">EAN13</option>
+              <option value="EAN">EAN</option>
+              <option value="EAN8">EAN8</option>
+              <option value="CODE39">CODE39</option>
+            </select>
+          </div>
         </label>
         <label class="full-width">
           Notes (optional)
@@ -194,6 +207,18 @@
                 <button type="button" class="secondary edit-scan-barcode">📸</button>
               </div>
               <input type="file" class="edit-barcode-input" accept="image/*" hidden />
+            </label>
+            <label>
+              Encode Type
+              <div class="inline-field">
+                <select name="barcodeType" class="barcode-type-select">
+                  <option value="CODE128" selected>CODE128</option>
+                  <option value="EAN13">EAN13</option>
+                  <option value="EAN">EAN</option>
+                  <option value="EAN8">EAN8</option>
+                  <option value="CODE39">CODE39</option>
+                </select>
+              </div>
             </label>
 
             <label>

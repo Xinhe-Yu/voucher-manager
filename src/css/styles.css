@@ -151,11 +151,13 @@ label {
 
 input,
 textarea,
+select,
 button {
   font: inherit;
 }
 
 input,
+select,
 textarea {
   padding: 0.55rem 0.65rem;
   border-radius: 8px;
@@ -223,10 +225,16 @@ button.secondary:hover {
 
 .inline-field input {
   flex: 1;
+  min-width: 0;
+}
+
+.inline-field button {
+  flex-shrink: 0;
 }
 
 .barcode-type-select {
   margin-top: 0.35rem;
+  width: 100%;
 }
 
 .modal {

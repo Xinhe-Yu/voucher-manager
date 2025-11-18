@@ -147,6 +147,7 @@ function renderVouchers(vouchers, payments) {
           voucher.currentBalance ?? voucher.initialAmount ?? 0,
         ).toFixed(2);
       if (editForm.barcode) editForm.barcode.value = voucher.barcode || '';
+      if (editForm.barcodeType) editForm.barcodeType.value = voucher.barcodeType || 'CODE128';
       if (editForm.notes) editForm.notes.value = voucher.notes || '';
       if (editForm.expirationDate) editForm.expirationDate.value = voucher.expirationDate || '';
       const helper = editForm.querySelector('.balance-helper');
@@ -254,6 +255,7 @@ export const voucherApp = {
     const initialAmount = Number(formData.get('initialAmount'));
     const currency = formData.get('currency')?.toString().trim() || 'EUR';
     const barcode = formData.get('barcode')?.toString().trim() || '';
+    const barcodeType = formData.get('barcodeType')?.toString().trim() || 'CODE128';
     const notes = formData.get('notes')?.toString().trim() || '';
     const expirationDate = formData.get('expirationDate')?.toString().trim() || '';
 
@@ -269,7 +271,7 @@ export const voucherApp = {
       currentBalance: initialAmount,
       currency,
       barcode,
-      barcodeType: 'CODE128',
+      barcodeType,
       notes,
       expirationDate,
     };
@@ -284,6 +286,8 @@ export const voucherApp = {
   resetVoucherForm() {
     voucherForm.reset();
     voucherForm.currency.value = 'EUR';
+    const barcodeTypeSelect = voucherForm.querySelector('select[name="barcodeType"]');
+    if (barcodeTypeSelect) barcodeTypeSelect.value = 'CODE128';
   },
 
   async onVoucherListSubmit(event) {
@@ -334,6 +338,7 @@ export const voucherApp = {
       const balanceDelta = Number((voucher.currentBalance - desiredBalance).toFixed(2));
       const notes = form.notes.value.trim();
       const barcode = form.barcode.value.trim();
+      const barcodeType = form.barcodeType?.value?.trim() || voucher.barcodeType || 'CODE128';
       const expirationDate = form.expirationDate?.value?.trim() || '';
       const currency = form.currency.value.trim() || 'EUR';
 
@@ -346,6 +351,7 @@ export const voucherApp = {
           balanceDelta !== 0 ||
           notes !== (voucher.notes || '') ||
           barcode !== (voucher.barcode || '') ||
+          barcodeType !== (voucher.barcodeType || 'CODE128') ||
           expirationDate !== (voucher.expirationDate || '') ||
           currency !== (voucher.currency || 'EUR');
 
@@ -355,6 +361,7 @@ export const voucherApp = {
             currentBalance: desiredBalance,
             notes,
             barcode,
+            barcodeType,
             expirationDate,
             currency,
           });
@@ -526,6 +533,7 @@ function enterInlineEdit(card, voucher) {
   if (form.currentBalance)
     form.currentBalance.value = Number(voucher.currentBalance ?? voucher.initialAmount ?? 0).toFixed(2);
   if (form.barcode) form.barcode.value = voucher.barcode || '';
+  if (form.barcodeType) form.barcodeType.value = voucher.barcodeType || 'CODE128';
   if (form.notes) form.notes.value = voucher.notes || '';
   if (form.expirationDate) form.expirationDate.value = voucher.expirationDate || '';
 
@@ -554,6 +562,8 @@ async function fillBarcodeFromImage(event, targetInput) {
     });
     if (result?.code) {
       targetInput.value = result.code;
+      const select = targetInput.form?.querySelector('select[name="barcodeType"]');
+      if (select && result.format) select.value = result.format;
       showToast('Barcode detected');
     } else {
       alert('No barcode detected in image');
