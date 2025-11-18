@@ -77,6 +77,18 @@
           <input type="file" id="barcodeImageInput" accept="image/*" hidden
             hx-on:change="window.voucherApp.handleBarcodeImageChange(event)" />
         </label>
+        <div class="barcode-type-wrapper hidden">
+          <label class="full-width">
+            Encode type
+            <select name="barcodeType" class="barcode-type-select">
+              <option value="CODE128" selected>CODE128</option>
+              <option value="EAN13">EAN13</option>
+              <option value="EAN">EAN</option>
+              <option value="EAN8">EAN8</option>
+              <option value="CODE39">CODE39</option>
+            </select>
+          </label>
+        </div>
         <label class="full-width">
           Notes (optional)
           <textarea name="notes" rows="3" placeholder="Pin, store etc."></textarea>
@@ -107,7 +119,7 @@
   <div id="barcodeModal" class="modal hidden" hx-on:click="window.voucherApp.closeBarcodeModal(event)">
     <div class="modal-content" role="dialog" aria-modal="true" aria-label="Barcode preview"
       hx-on:click="event.stopPropagation()">
-      <canvas id="barcodeCanvas" width="320" height="120"></canvas>
+      <canvas id="barcodeCanvas" width="400" height="120"></canvas>
     </div>
   </div>
 
@@ -195,6 +207,18 @@
               </div>
               <input type="file" class="edit-barcode-input" accept="image/*" hidden />
             </label>
+            <div class="barcode-type-wrapper hidden">
+              <label class="full-width">
+                Encode type
+                <select name="barcodeType" class="barcode-type-select">
+                  <option value="CODE128" selected>CODE128</option>
+                  <option value="EAN13">EAN13</option>
+                  <option value="EAN">EAN</option>
+                  <option value="EAN8">EAN8</option>
+                  <option value="CODE39">CODE39</option>
+                </select>
+              </label>
+            </div>
 
             <label>
               Expiration date

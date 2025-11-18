@@ -147,6 +147,7 @@ function renderVouchers(vouchers, payments) {
           voucher.currentBalance ?? voucher.initialAmount ?? 0,
         ).toFixed(2);
       if (editForm.barcode) editForm.barcode.value = voucher.barcode || '';
+      if (editForm.barcodeType) editForm.barcodeType.value = voucher.barcodeType || 'CODE128';
       if (editForm.notes) editForm.notes.value = voucher.notes || '';
       if (editForm.expirationDate) editForm.expirationDate.value = voucher.expirationDate || '';
       const helper = editForm.querySelector('.balance-helper');
@@ -254,6 +255,7 @@ export const voucherApp = {
     const initialAmount = Number(formData.get('initialAmount'));
     const currency = formData.get('currency')?.toString().trim() || 'EUR';
     const barcode = formData.get('barcode')?.toString().trim() || '';
+    const barcodeTypeRaw = formData.get('barcodeType')?.toString().trim() || 'CODE128';
     const notes = formData.get('notes')?.toString().trim() || '';
     const expirationDate = formData.get('expirationDate')?.toString().trim() || '';
 
@@ -269,7 +271,7 @@ export const voucherApp = {
       currentBalance: initialAmount,
       currency,
       barcode,
-      barcodeType: 'CODE128',
+      barcodeType: barcode ? barcodeTypeRaw : '',
       notes,
       expirationDate,
     };
@@ -277,6 +279,7 @@ export const voucherApp = {
     await addVoucher(voucher);
     voucherForm.reset();
     voucherForm.currency.value = 'EUR';
+    toggleBarcodeTypeVisibility(voucherForm);
     await refreshVouchers();
     showToast('Voucher created');
   },
@@ -284,6 +287,9 @@ export const voucherApp = {
   resetVoucherForm() {
     voucherForm.reset();
     voucherForm.currency.value = 'EUR';
+    const barcodeTypeSelect = voucherForm.querySelector('select[name="barcodeType"]');
+    if (barcodeTypeSelect) barcodeTypeSelect.value = 'CODE128';
+    toggleBarcodeTypeVisibility(voucherForm);
   },
 
   async onVoucherListSubmit(event) {
@@ -334,6 +340,9 @@ export const voucherApp = {
       const balanceDelta = Number((voucher.currentBalance - desiredBalance).toFixed(2));
       const notes = form.notes.value.trim();
       const barcode = form.barcode.value.trim();
+      const barcodeType = barcode
+        ? form.barcodeType?.value?.trim() || voucher.barcodeType || 'CODE128'
+        : '';
       const expirationDate = form.expirationDate?.value?.trim() || '';
       const currency = form.currency.value.trim() || 'EUR';
 
@@ -346,6 +355,7 @@ export const voucherApp = {
           balanceDelta !== 0 ||
           notes !== (voucher.notes || '') ||
           barcode !== (voucher.barcode || '') ||
+          barcodeType !== (voucher.barcodeType || 'CODE128') ||
           expirationDate !== (voucher.expirationDate || '') ||
           currency !== (voucher.currency || 'EUR');
 
@@ -355,6 +365,7 @@ export const voucherApp = {
             currentBalance: desiredBalance,
             notes,
             barcode,
+            barcodeType,
             expirationDate,
             currency,
           });
@@ -362,6 +373,7 @@ export const voucherApp = {
 
         const card = form.closest('.voucher-card');
         exitInlineEdit(card);
+        toggleBarcodeTypeVisibility(form);
         await refreshVouchers();
         showToast('Voucher updated');
       } catch (err) {
@@ -401,16 +413,17 @@ export const voucherApp = {
     if (cancelEditBtn) {
       event.preventDefault();
       exitInlineEdit(card);
+      if (card) toggleBarcodeTypeVisibility(card.querySelector('.edit-form'));
       return;
     }
 
-    const scanBtn = event.target.closest('.edit-scan-barcode');
-    if (scanBtn) {
-      event.preventDefault();
-      const input = card?.querySelector('.edit-barcode-input');
-      input?.click();
-      return;
-    }
+      const scanBtn = event.target.closest('.edit-scan-barcode');
+      if (scanBtn) {
+        event.preventDefault();
+        const input = card?.querySelector('.edit-barcode-input');
+        input?.click();
+        return;
+      }
 
     if (card && card.classList.contains('editing')) return;
 
@@ -448,6 +461,10 @@ export const voucherApp = {
       const form = input.closest('.edit-form');
       const barcodeInput = form?.querySelector('input[name="barcode"]');
       await fillBarcodeFromImage(event, barcodeInput);
+    }
+    if (event.target.matches('input[name="barcode"]')) {
+      const form = event.target.form;
+      toggleBarcodeTypeVisibility(form);
     }
   },
 
@@ -492,6 +509,7 @@ export const voucherApp = {
   async handleBarcodeImageChange(event) {
     const barcodeInput = voucherForm.querySelector('input[name="barcode"]');
     await fillBarcodeFromImage(event, barcodeInput);
+    toggleBarcodeTypeVisibility(voucherForm);
   },
 
   closeBarcodeModal(event) {
@@ -526,6 +544,7 @@ function enterInlineEdit(card, voucher) {
   if (form.currentBalance)
     form.currentBalance.value = Number(voucher.currentBalance ?? voucher.initialAmount ?? 0).toFixed(2);
   if (form.barcode) form.barcode.value = voucher.barcode || '';
+  if (form.barcodeType) form.barcodeType.value = voucher.barcodeType || 'CODE128';
   if (form.notes) form.notes.value = voucher.notes || '';
   if (form.expirationDate) form.expirationDate.value = voucher.expirationDate || '';
 
@@ -545,6 +564,15 @@ function exitInlineEdit(card) {
   card.classList.remove('editing');
 }
 
+function toggleBarcodeTypeVisibility(form) {
+  if (!form) return;
+  const barcodeInput = form.querySelector('input[name="barcode"]');
+  const wrapper = form.querySelector('.barcode-type-wrapper');
+  if (!barcodeInput || !wrapper) return;
+  const hasBarcode = Boolean(barcodeInput.value?.trim());
+  wrapper.classList.toggle('hidden', !hasBarcode);
+}
+
 async function fillBarcodeFromImage(event, targetInput) {
   const file = event.target.files?.[0];
   if (!file || !targetInput) return;
@@ -554,7 +582,10 @@ async function fillBarcodeFromImage(event, targetInput) {
     });
     if (result?.code) {
       targetInput.value = result.code;
+      const select = targetInput.form?.querySelector('select[name="barcodeType"]');
+      if (select && result.format) select.value = result.format;
       showToast('Barcode detected');
+      toggleBarcodeTypeVisibility(targetInput.form);
     } else {
       alert('No barcode detected in image');
     }
@@ -569,10 +600,13 @@ async function fillBarcodeFromImage(event, targetInput) {
 function openBarcodeModal(voucher) {
   if (!barcodeModal || !barcodeCanvas) return;
   barcodeModal.classList.remove('hidden');
+  const shouldRotate = window.matchMedia('(max-width: 500px) and (orientation: portrait)').matches;
+  const content = barcodeModal.querySelector('.modal-content');
+  content?.classList.toggle('barcode-vertical', shouldRotate);
   renderBarcode(barcodeCanvas, voucher.barcode, {
     format: (voucher.barcodeType || 'CODE128').toUpperCase(),
-    width: 2,
-    height: 80,
+    width: 3,
+    height: 110,
     displayValue: true,
   }).catch((err) => console.error('Failed to render barcode', err));
 }

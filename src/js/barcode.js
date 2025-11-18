@@ -48,18 +48,38 @@ async function ensureJsBarcode() {
  */
 export async function renderBarcode(element, value, options = {}) {
   const JsBarcode = await ensureJsBarcode();
-  const defaults = { format: 'CODE128', height: 60, width: 2, displayValue: true };
+  const defaults = { format: 'CODE128', height: 80, width: 3, displayValue: true, margin: 8 };
+  const opts = { ...defaults, ...options };
+
+  // Size canvas based on content length so longer codes don't get cramped.
+  if (element instanceof HTMLCanvasElement) {
+    const length = Math.max(1, (value || '').length);
+    const logicalWidth = Math.min(800, Math.max(260, length * 14));
+    let logicalHeight = Math.max(opts.height + (opts.displayValue ? 8 : 0), 110);
+    // keep landscape-ish aspect ratio
+    logicalHeight = Math.min(logicalHeight, logicalWidth * 0.65);
+    const dpr = window.devicePixelRatio || 1;
+    element.width = Math.floor(logicalWidth * dpr);
+    element.height = Math.floor(logicalHeight * dpr);
+    element.style.width = `${logicalWidth}px`;
+    element.style.height = `${logicalHeight}px`;
+    const ctx = element.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
   try {
-    JsBarcode(element, value, { ...defaults, ...options });
+    JsBarcode(element, value, opts);
   } catch (err) {
     console.error('JsBarcode failed, falling back to text render.', err);
-    // Fallback: simple text render
     const ctx = element.getContext?.('2d');
     if (ctx) {
+      const logicalHeight = parseFloat(element.style.height) || element.height;
       ctx.clearRect(0, 0, element.width, element.height);
       ctx.font = '16px sans-serif';
       ctx.fillStyle = '#111';
-      ctx.fillText(value, 8, element.height / 2);
+      ctx.fillText(value, 8, logicalHeight / 2);
     } else {
       element.textContent = value;
     }
@@ -70,9 +90,9 @@ export async function renderBarcode(element, value, options = {}) {
  * Decode a still image file using Quagga's single image mode.
  * @param {File} file
  * @param {{readers?: string[]}} [options]
- * @returns {Promise<string|null>} resolved with the detected code or null
+ * @returns {Promise<{code: string, format?: string}|null>} resolved with the detected code/format or null
  */
-export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader'] } = {}) {
+export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader', 'ean_reader', 'ean_8_reader', 'code_39_reader'] } = {}) {
   if (!file) throw new Error('No file provided');
   const Quagga = await ensureQuagga();
   const dataUrl = await readFileAsDataURL(file);
@@ -86,7 +106,12 @@ export async function decodeBarcodeFromImage(file, { readers = ['code_128_reader
         locate: true,
       },
       (result) => {
-        resolve(result?.codeResult || null);
+        const codeResult = result?.codeResult;
+        if (!codeResult?.code) return resolve(null);
+        resolve({
+          code: codeResult.code,
+          format: quaggaFormatToJsBarcode(codeResult.format),
+        });
       }
     );
   });
@@ -99,4 +124,17 @@ function readFileAsDataURL(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function quaggaFormatToJsBarcode(format) {
+  if (!format) return undefined;
+  const normalized = format.toLowerCase();
+  const map = {
+    code_128: 'CODE128',
+    ean: 'EAN',
+    ean_8: 'EAN8',
+    ean_13: 'EAN13',
+    code_39: 'CODE39',
+  };
+  return map[normalized] || format.toUpperCase();
 }

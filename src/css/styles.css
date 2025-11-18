@@ -96,10 +96,6 @@ body {
   background: rgba(47, 128, 237, 0.08);
 }
 
-.tab-panel.hidden {
-  display: none;
-}
-
 .tab-panel {
   width: min(90vw, 720px);
   max-width: 720px;
@@ -151,11 +147,13 @@ label {
 
 input,
 textarea,
+select,
 button {
   font: inherit;
 }
 
 input,
+select,
 textarea {
   padding: 0.55rem 0.65rem;
   border-radius: 8px;
@@ -165,6 +163,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--accent);
@@ -223,10 +222,16 @@ button.secondary:hover {
 
 .inline-field input {
   flex: 1;
+  min-width: 0;
+}
+
+.inline-field button {
+  flex-shrink: 0;
 }
 
 .barcode-type-select {
   margin-top: 0.35rem;
+  width: 100%;
 }
 
 .modal {
@@ -235,15 +240,14 @@ button.secondary:hover {
   left: 0;
   right: 0;
   bottom: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-}
-
-.modal.hidden {
-  display: none;
+  overflow: hidden;
 }
 
 .modal-content {
@@ -257,6 +261,8 @@ button.secondary:hover {
   gap: 0.5rem;
   min-width: 340px;
   align-items: center;
+  max-width: min(520px, 92vw);
+  overflow: visible;
 }
 
 .close-modal {
@@ -426,10 +432,6 @@ button.secondary:hover {
   min-height: 60px;
 }
 
-.voucher-details.hidden {
-  display: none;
-}
-
 .voucher-toggle {
   margin-left: auto;
 }
@@ -488,6 +490,21 @@ button.secondary:hover {
 
 .toast.visible {
   opacity: 1;
+}
+
+#barcodeCanvas {
+  display: block;
+  max-width: 90vw;
+  max-height: 70vh;
+}
+
+.barcode-vertical {
+  transform: rotate(90deg);
+  transform-origin: center;
+  max-width: none;
+  min-width: auto;
+  max-height: 90vh;
+  width: auto;
 }
 
 hr {
