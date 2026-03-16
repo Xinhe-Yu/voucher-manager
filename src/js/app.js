@@ -73,6 +73,7 @@ async function refreshVouchers() {
 }
 
 function renderVouchers(vouchers, payments) {
+  vouchers = vouchers.filter((voucher) => voucher.currentBalance > 0);
   voucherListEl.innerHTML = '';
   voucherCountEl.textContent = `${vouchers.length} item${vouchers.length === 1 ? '' : 's'}`;
 
@@ -417,13 +418,13 @@ export const voucherApp = {
       return;
     }
 
-      const scanBtn = event.target.closest('.edit-scan-barcode');
-      if (scanBtn) {
-        event.preventDefault();
-        const input = card?.querySelector('.edit-barcode-input');
-        input?.click();
-        return;
-      }
+    const scanBtn = event.target.closest('.edit-scan-barcode');
+    if (scanBtn) {
+      event.preventDefault();
+      const input = card?.querySelector('.edit-barcode-input');
+      input?.click();
+      return;
+    }
 
     if (card && card.classList.contains('editing')) return;
 
