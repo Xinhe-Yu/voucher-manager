@@ -31,6 +31,7 @@ const MAX_MERCHANT_HISTORY = 5;
 let vouchersCache = [];
 let paymentsCache = [];
 const expandedVoucherIds = new Set();
+let archiveExpanded = false;
 
 function formatPaymentAmount(amount, currency) {
   if (!Number.isFinite(amount)) return formatCurrency(amount, currency);
@@ -78,15 +79,108 @@ async function refreshVouchers() {
   renderPayments(paymentsCache, vouchersCache);
 }
 
-function renderVouchers(vouchers, payments) {
-  vouchers = vouchers.filter((voucher) => voucher.currentBalance > 0);
-  voucherListEl.innerHTML = '';
-  voucherCountEl.textContent = `${vouchers.length} item${vouchers.length === 1 ? '' : 's'}`;
+function isVoucherArchived(voucher) {
+  if ((voucher.currentBalance ?? 0) <= 0) return true;
+  if (!voucher.expirationDate) return false;
+  const expirationDate = new Date(voucher.expirationDate);
+  if (Number.isNaN(expirationDate.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  expirationDate.setHours(0, 0, 0, 0);
+  return expirationDate < today;
+}
 
-  if (!vouchers.length) {
-    voucherListEl.innerHTML = '<p>No vouchers yet. Add your first one above.</p>';
-    return;
+function buildVoucherCard(voucher, paymentsByVoucher, tpl, paymentTpl) {
+  const node = tpl.content.cloneNode(true);
+  const card = node.querySelector('.voucher-card');
+  const isExpanded = expandedVoucherIds.has(voucher.id);
+
+  card.dataset.id = voucher.id;
+  card.classList.toggle('expanded', isExpanded);
+  card.classList.toggle('collapsed', !isExpanded);
+
+  node.querySelector('.voucher-merchant').textContent = voucher.merchantName;
+  node.querySelector('.voucher-created').textContent = new Date(voucher.created_at).toLocaleString();
+  node.querySelector('.voucher-balance').textContent = formatCurrency(voucher.currentBalance, voucher.currency);
+  node.querySelector('.voucher-currency').textContent = voucher.currency;
+  const expiryText = node.querySelector('.voucher-expiry');
+
+  const expiryInfo = getExpiryInfo(voucher.expirationDate);
+  if (expiryText) expiryText.textContent = expiryInfo?.inlineText || '';
+
+  const barcodeBtn = node.querySelector('.barcode-btn');
+  if (!voucher.barcode) {
+    barcodeBtn?.remove();
   }
+
+  const details = node.querySelector('.voucher-details');
+  if (isExpanded) {
+    details.classList.remove('hidden');
+  } else {
+    details.classList.add('hidden');
+  }
+
+  node.querySelector('.voucher-full-amount').textContent =
+    `/ ${formatCurrency(voucher.initialAmount, voucher.currency)}`;
+
+  node.querySelector('.payment-form').dataset.id = voucher.id;
+  const noteText = voucher.notes?.trim();
+  if (noteText && noteText.length > 0) {
+    const notesEl = node.querySelector('.voucher-notes');
+    if (notesEl) notesEl.textContent = noteText;
+  } else {
+    const notesEl = node.querySelector('.note-display');
+    if (notesEl) notesEl.classList.add('hidden');
+  }
+
+  const editForm = node.querySelector('.edit-form');
+  if (editForm) {
+    editForm.dataset.id = voucher.id;
+    if (editForm.voucherId) editForm.voucherId.value = voucher.id;
+    if (editForm.merchantName) editForm.merchantName.value = voucher.merchantName;
+    if (editForm.currency) editForm.currency.value = voucher.currency;
+    if (editForm.currentBalance)
+      editForm.currentBalance.value = Number(
+        voucher.currentBalance ?? voucher.initialAmount ?? 0,
+      ).toFixed(2);
+    if (editForm.barcode) editForm.barcode.value = voucher.barcode || '';
+    if (editForm.barcodeType) editForm.barcodeType.value = voucher.barcodeType || 'CODE128';
+    if (editForm.notes) editForm.notes.value = voucher.notes || '';
+    if (editForm.expirationDate) editForm.expirationDate.value = voucher.expirationDate || '';
+    const helper = editForm.querySelector('.balance-helper');
+    if (helper) {
+      helper.textContent = `${formatCurrency(voucher.currentBalance, voucher.currency)} available (initial ${formatCurrency(
+        voucher.initialAmount,
+        voucher.currency,
+      )})`;
+    }
+  }
+
+  const paymentsContainer = node.querySelector('.voucher-expenses');
+  const voucherPayments = paymentsByVoucher[voucher.id] ?? [];
+
+  if (voucherPayments.length === 0) {
+    paymentsContainer.innerHTML = '<small>No expenses yet.</small>';
+  } else {
+    for (const payment of voucherPayments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
+      const paymentNode = paymentTpl.content.cloneNode(true);
+      paymentNode.querySelector('.payment-date').textContent = new Date(payment.created_at).toLocaleString();
+      const amountEl = paymentNode.querySelector('.payment-amount');
+      amountEl.textContent = formatPaymentAmount(payment.amount, voucher.currency);
+      amountEl.classList.toggle('positive', payment.amount < 0);
+      paymentsContainer.appendChild(paymentNode);
+    }
+  }
+
+  const editBtn = node.querySelector('.edit-btn');
+  if (editBtn) editBtn.dataset.id = voucher.id;
+  node.querySelector('.delete-btn').dataset.id = voucher.id;
+
+  return node;
+}
+
+function renderVouchers(vouchers, payments) {
+  voucherListEl.innerHTML = '';
 
   const tpl = document.getElementById('voucher-card-template');
   const paymentTpl = document.getElementById('payment-row-template');
@@ -96,99 +190,56 @@ function renderVouchers(vouchers, payments) {
     return acc;
   }, {});
 
-  for (const voucher of vouchers.sort((a, b) => a.merchantName.localeCompare(b.merchantName))) {
-    const node = tpl.content.cloneNode(true);
-    const card = node.querySelector('.voucher-card');
-    const isExpanded = expandedVoucherIds.has(voucher.id);
-
-    // Attach ID
-    card.dataset.id = voucher.id;
-    card.classList.toggle('expanded', isExpanded);
-    card.classList.toggle('collapsed', !isExpanded);
-
-    // Set header fields
-    node.querySelector('.voucher-merchant').textContent = voucher.merchantName;
-    node.querySelector('.voucher-created').textContent = new Date(voucher.created_at).toLocaleString();
-    node.querySelector('.voucher-balance').textContent = formatCurrency(voucher.currentBalance, voucher.currency);
-    node.querySelector('.voucher-currency').textContent = voucher.currency;
-    const expiryText = node.querySelector('.voucher-expiry');
-
-    const expiryInfo = getExpiryInfo(voucher.expirationDate);
-    if (expiryText) expiryText.textContent = expiryInfo?.inlineText || '';
-
-    const barcodeBtn = node.querySelector('.barcode-btn');
-    if (!voucher.barcode) {
-      barcodeBtn?.remove();
-    }
-
-    // Details
-    const details = node.querySelector('.voucher-details');
-    if (isExpanded) {
-      details.classList.remove('hidden');
+  const activeVouchers = [];
+  const archivedVouchers = [];
+  for (const voucher of vouchers) {
+    if (isVoucherArchived(voucher)) {
+      archivedVouchers.push(voucher);
     } else {
-      details.classList.add('hidden');
+      activeVouchers.push(voucher);
+    }
+  }
+
+  voucherCountEl.textContent = `${activeVouchers.length} item${activeVouchers.length === 1 ? '' : 's'}`;
+
+  if (!activeVouchers.length && !archivedVouchers.length) {
+    voucherListEl.innerHTML = '<p>No vouchers yet. Add your first one above.</p>';
+    return;
+  }
+
+  for (const voucher of activeVouchers.sort((a, b) => a.merchantName.localeCompare(b.merchantName))) {
+    voucherListEl.appendChild(buildVoucherCard(voucher, paymentsByVoucher, tpl, paymentTpl));
+  }
+
+  if (!activeVouchers.length) {
+    const emptyState = document.createElement('p');
+    emptyState.textContent = 'No active vouchers.';
+    voucherListEl.appendChild(emptyState);
+  }
+
+  if (archivedVouchers.length) {
+    const archiveSection = document.createElement('section');
+    archiveSection.className = 'voucher-archive';
+
+    const archiveToggle = document.createElement('button');
+    archiveToggle.type = 'button';
+    archiveToggle.className = 'secondary archive-toggle-btn';
+    archiveToggle.setAttribute('aria-expanded', archiveExpanded ? 'true' : 'false');
+    archiveToggle.textContent = archiveExpanded
+      ? `Hide archived vouchers (${archivedVouchers.length})`
+      : `Show archived vouchers (${archivedVouchers.length})`;
+
+    const archiveList = document.createElement('div');
+    archiveList.className = 'voucher-list';
+    archiveList.classList.toggle('hidden', !archiveExpanded);
+
+    for (const voucher of archivedVouchers.sort((a, b) => a.merchantName.localeCompare(b.merchantName))) {
+      archiveList.appendChild(buildVoucherCard(voucher, paymentsByVoucher, tpl, paymentTpl));
     }
 
-    node.querySelector('.voucher-full-amount').textContent =
-      `/ ${formatCurrency(voucher.initialAmount, voucher.currency)}`;
-
-    // Forms IDs
-    node.querySelector('.payment-form').dataset.id = voucher.id;
-    const noteText = voucher.notes?.trim();
-    if (noteText && noteText.length > 0) {
-      const notesEl = node.querySelector('.voucher-notes');
-      if (notesEl) notesEl.textContent = noteText;
-    } else {
-      const notesEl = node.querySelector('.note-display');
-      if (notesEl) notesEl.classList.add('hidden');
-    }
-
-    const editForm = node.querySelector('.edit-form');
-    if (editForm) {
-      editForm.dataset.id = voucher.id;
-      if (editForm.voucherId) editForm.voucherId.value = voucher.id;
-      if (editForm.merchantName) editForm.merchantName.value = voucher.merchantName;
-      if (editForm.currency) editForm.currency.value = voucher.currency;
-      if (editForm.currentBalance)
-        editForm.currentBalance.value = Number(
-          voucher.currentBalance ?? voucher.initialAmount ?? 0,
-        ).toFixed(2);
-      if (editForm.barcode) editForm.barcode.value = voucher.barcode || '';
-      if (editForm.barcodeType) editForm.barcodeType.value = voucher.barcodeType || 'CODE128';
-      if (editForm.notes) editForm.notes.value = voucher.notes || '';
-      if (editForm.expirationDate) editForm.expirationDate.value = voucher.expirationDate || '';
-      const helper = editForm.querySelector('.balance-helper');
-      if (helper) {
-        helper.textContent = `${formatCurrency(voucher.currentBalance, voucher.currency)} available (initial ${formatCurrency(
-          voucher.initialAmount,
-          voucher.currency,
-        )})`;
-      }
-    }
-
-    // Payments
-    const paymentsContainer = node.querySelector('.voucher-expenses');
-    const vp = paymentsByVoucher[voucher.id] ?? [];
-
-    if (vp.length === 0) {
-      paymentsContainer.innerHTML = '<small>No expenses yet.</small>';
-    } else {
-      for (const p of vp.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
-        const pNode = paymentTpl.content.cloneNode(true);
-        pNode.querySelector('.payment-date').textContent = new Date(p.created_at).toLocaleString();
-        const amountEl = pNode.querySelector('.payment-amount');
-        amountEl.textContent = formatPaymentAmount(p.amount, voucher.currency);
-        amountEl.classList.toggle('positive', p.amount < 0);
-        paymentsContainer.appendChild(pNode);
-      }
-    }
-
-    // Delete button
-    const editBtn = node.querySelector('.edit-btn');
-    if (editBtn) editBtn.dataset.id = voucher.id;
-    node.querySelector('.delete-btn').dataset.id = voucher.id;
-
-    voucherListEl.appendChild(node);
+    archiveSection.appendChild(archiveToggle);
+    archiveSection.appendChild(archiveList);
+    voucherListEl.appendChild(archiveSection);
   }
 }
 
@@ -453,6 +504,14 @@ export const voucherApp = {
   },
 
   async onVoucherListClick(event) {
+    const archiveToggleBtn = event.target.closest('.archive-toggle-btn');
+    if (archiveToggleBtn) {
+      event.preventDefault();
+      archiveExpanded = !archiveExpanded;
+      renderVouchers(vouchersCache, paymentsCache);
+      return;
+    }
+
     const card = event.target.closest('.voucher-card');
     const isInteractive = event.target.closest('button, input, textarea, select, a');
 
