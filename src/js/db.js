@@ -87,7 +87,7 @@ export async function addVoucher(voucher) {
   const payload = {
     ...voucher,
     created_at: voucher.created_at || new Date().toISOString(),
-    currentBalance: voucher.currentBalance ?? voucher.initialAmount ?? 0,
+    currentBalance: voucher.currentBalance ?? voucher.initialAmount ?? 50,
   };
   const store = await getStore(STORE_NAME, 'readwrite');
   await wrapRequest(store.add(payload));
