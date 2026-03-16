@@ -53,7 +53,9 @@
       <form id="voucherForm" class="form-grid" hx-on:submit="window.voucherApp.handleVoucherFormSubmit(event)">
         <label>
           Merchant name
-          <input type="text" name="merchantName" required placeholder="Merchant" />
+          <input type="text" name="merchantName" list="merchantNameSuggestions" required placeholder="Merchant"
+            autocomplete="off" />
+          <datalist id="merchantNameSuggestions"></datalist>
         </label>
         <label>
           Initial amount

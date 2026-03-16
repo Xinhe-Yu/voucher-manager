@@ -23,6 +23,10 @@ const tabButtons = Array.from(document.querySelectorAll('.tab-button'));
 const tabPanels = Array.from(document.querySelectorAll('.tab-panel'));
 const barcodeModal = document.getElementById('barcodeModal');
 const barcodeCanvas = document.getElementById('barcodeCanvas');
+const merchantSuggestionsEl = document.getElementById('merchantNameSuggestions');
+
+const MERCHANT_HISTORY_KEY = 'voucher-manager:merchant-history';
+const MAX_MERCHANT_HISTORY = 5;
 
 let vouchersCache = [];
 let paymentsCache = [];
@@ -59,6 +63,8 @@ function getExpiryInfo(expirationDate) {
 document.addEventListener('DOMContentLoaded', async () => {
   await initDB();
   await refreshVouchers();
+  syncMerchantHistoryFromVouchers(vouchersCache);
+  renderMerchantSuggestions();
   registerServiceWorker();
   voucherApp.setActiveTab('wallet');
 });
@@ -238,6 +244,66 @@ function showToast(message) {
   }, 2000);
 }
 
+function getMerchantHistory() {
+  try {
+    const raw = localStorage.getItem(MERCHANT_HISTORY_KEY);
+    const parsed = JSON.parse(raw || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((name) => name?.toString().trim())
+      .filter(Boolean)
+      .slice(0, MAX_MERCHANT_HISTORY);
+  } catch (err) {
+    console.error('Failed to read merchant history', err);
+    return [];
+  }
+}
+
+function saveMerchantHistory(names) {
+  try {
+    localStorage.setItem(MERCHANT_HISTORY_KEY, JSON.stringify(names.slice(0, MAX_MERCHANT_HISTORY)));
+  } catch (err) {
+    console.error('Failed to save merchant history', err);
+  }
+}
+
+function mergeMerchantHistory(names) {
+  const merged = [];
+  for (const name of names) {
+    const normalized = name?.toString().trim();
+    if (!normalized) continue;
+    const existingIndex = merged.findIndex((entry) => entry.toLowerCase() === normalized.toLowerCase());
+    if (existingIndex >= 0) merged.splice(existingIndex, 1);
+    merged.push(normalized);
+  }
+  const nextHistory = merged.slice(0, MAX_MERCHANT_HISTORY);
+  saveMerchantHistory(nextHistory);
+  renderMerchantSuggestions(nextHistory);
+}
+
+function rememberMerchantName(name) {
+  const existing = getMerchantHistory();
+  mergeMerchantHistory([name, ...existing]);
+}
+
+function syncMerchantHistoryFromVouchers(vouchers) {
+  const recentNames = vouchers
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .map((voucher) => voucher.merchantName);
+  mergeMerchantHistory([...recentNames, ...getMerchantHistory()]);
+}
+
+function renderMerchantSuggestions(history = getMerchantHistory()) {
+  if (!merchantSuggestionsEl) return;
+  merchantSuggestionsEl.innerHTML = '';
+  for (const name of history) {
+    const option = document.createElement('option');
+    option.value = name;
+    merchantSuggestionsEl.appendChild(option);
+  }
+}
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -278,6 +344,7 @@ export const voucherApp = {
     };
 
     await addVoucher(voucher);
+    rememberMerchantName(merchantName);
     voucherForm.reset();
     voucherForm.currency.value = 'EUR';
     toggleBarcodeTypeVisibility(voucherForm);
@@ -499,6 +566,7 @@ export const voucherApp = {
     try {
       await importVouchers(text);
       await refreshVouchers();
+      syncMerchantHistoryFromVouchers(vouchersCache);
       alert('Vouchers imported successfully');
     } catch (err) {
       console.error(err);
