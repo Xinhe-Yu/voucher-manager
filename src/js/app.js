@@ -319,7 +319,7 @@ export const voucherApp = {
     event.preventDefault();
     const formData = new FormData(voucherForm);
     const merchantName = formData.get('merchantName')?.toString().trim();
-    const initialAmount = Number(formData.get('initialAmount'));
+    const initialAmount = Number(formData.get('initialAmount') || 50);
     const currency = formData.get('currency')?.toString().trim() || 'EUR';
     const barcode = formData.get('barcode')?.toString().trim() || '';
     const barcodeTypeRaw = formData.get('barcodeType')?.toString().trim() || 'CODE128';
