@@ -282,6 +282,7 @@ export const voucherApp = {
     voucherForm.currency.value = 'EUR';
     toggleBarcodeTypeVisibility(voucherForm);
     await refreshVouchers();
+    voucherApp.setActiveTab('wallet');
     showToast('Voucher created');
   },
 
